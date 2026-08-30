@@ -5,11 +5,17 @@ def main():
     print("=== Domineering ===")
     while True:
         try:
-            n = int(input("Ingrese el tamaño del tablero (n >= 4): "))
-            tablero = DomineeringTablero(n)
-            break
+            n = int(input("Ingrese el tamaño del tablero (n >= 4): ")) 
         except ValueError:
             print("Entrada inválida. Por favor, ingrese un número entero positivo.")
+            continue
+
+        try:
+            tablero = DomineeringTablero(n)
+        except ValueError:
+            print("Entrada inválida. Por favor, ingrese un número entero mayor a 4.")
+            continue
+        break
 
     jugador = "A"
     print("\nJugador A coloca fichas horizontalmente.")
