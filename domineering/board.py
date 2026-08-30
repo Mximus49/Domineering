@@ -16,16 +16,29 @@ class Board:
         self.__size = n
 
     def __str__(self) -> str:
-        """Función que es llamada cuando se hace str(self)"""
-        # Cantidad de caracteres para la columna con número de fila
-        offset = math.ceil(math.log10(self.__size))
-        # Primera línea
-        board = " "*offset + " "
-        board += " ".join(chr(ord('A') + i) for i in range(self.__size)) + "\n"
-        for i, line in enumerate(self.__places, 1):
-            # Falta arreglar el ancho del primer número
-            board += f"{i} " + " ".join(line) + '\n'
-        return board
+            # Cantidad de caracteres para la columna con número de fila
+            offset = math.ceil(math.log10(self.__size))
+    
+            # Aseguramos un ancho mínimo de columna para que las letras no queden pegadas (ej. 2 o 3 espacios)
+            ancho_columna = max(offset, 2)
+            # Primera línea
+            board = " "*ancho_columna
+    
+            # Toma el número i, pero oblígalo a ocupar exactamente el espacio de
+            for i in range(1, self.__size + 1):
+                board += f" {i:>{ancho_columna}}"
+            board += "\n"
+    
+    
+            for i, line in enumerate(self.__places, 1):
+                # Alineamos el número de la fila a la derecha usando el ancho definido
+                board += f"{i:>{ancho_columna}}"
+    
+                # Alineamos cada celda (letras o puntos) con el mismo ancho exacto
+                for elemento in line:
+                    board += f" {elemento:>{ancho_columna}}"
+                board += '\n'
+            return board
 
     def __repr__(self) -> str:
         """Función para cuando se llama repr(self)"""
