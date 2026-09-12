@@ -1,4 +1,9 @@
+"""
+Gestiona la interacción con los jugadores, solicita la configuración inicial 
+del tablero y controla el flujo de los turnos hasta determinar un ganador.
+"""
 from domineering import DomineeringTablero
+from ia import minimax_alfa_beta
 
 
 def main():
@@ -21,10 +26,11 @@ def main():
             print("Entrada inválida. Por favor, ingrese un número entero mayor a 4.")
             continue
         break
+
     # Crea las reglas visuales y al jugador que comienza la partida.
-    jugador = "A"
-    print("\nJugador A coloca fichas horizontalmente.")
-    print("Jugador B coloca fichas verticalmente.\n")
+    jugador = "A"  # A (humano) siempre inicia la partida.
+    print("\nJugador A (humano) coloca fichas verticalmente.")
+    print("Jugador B (IA) coloca fichas horizontalmente.\n")
     # Muestra el estado inicial del tablero vacío.
     print(tablero)
 
@@ -40,18 +46,26 @@ def main():
 
         print(f"\nTurno del jugador {jugador}.")
         
-        # Bloque para capturar las coordenadas de la jugada deseada.
-        try:
-            r = int(input("Ingrese la fila (1 a {}): \n".format(n)))
-            c = int(input("Ingrese la columna (1 a {}): \n".format(n)))
-        except ValueError:
-            print("Entrada inválida. Por favor, ingrese números enteros.")
-            continue # Reinicia la petición de coordenadas si hay error en la entrada.
-
+        
         # Lógica para procesar el movimiento dependiendo del jugador activo.
         if jugador == "A":
-            # Intenta ejecutar el movimiento horizontal para el jugador A.
-            if tablero.realizar_movimiento_A(r, c):
+            # Bloque para capturar las coordenadas de la jugada deseada (humano, vertical).
+            r = input(f"Ingrese la fila (1 a {n}): \n")
+            c = input(f"Ingrese la columna (1 a {n}): \n")
+            
+            if not (r.isdigit() and c.isdigit()):
+                print("Entrada inválida. Por favor, ingrese números enteros.\n")
+                continue
+            
+            r = int(r)
+            c = int(c)
+            
+            if r < 1 or r > n or c < 1 or c > n:
+                print(f"Movimiento invalido. Las coordenadas deben estar entre 1 y {n}.\n")
+                continue
+            
+            # Intenta ejecutar el movimiento vertical para el jugador A.
+            if tablero.realizar_movimiento_a(r, c):
                 print("Movimiento realizado por el jugador A.\n")
                 # Cambia el turno al jugador B si el movimiento fue exitoso.
                 jugador = "B"
@@ -60,15 +74,17 @@ def main():
                 # Avisa si la posición estaba ocupada o dejaba la pieza fuera de los límites.
                 print("Movimiento inválido para el jugador A.\n")
         else:
-            # Intenta ejecutar el movimiento vertical para el jugador B.
-            if tablero.realizar_movimiento_B(r, c):
-                print("Movimiento realizado por el jugador B.\n")
-                # Cambia el turno al jugador A si el movimiento fue exitoso.
+            print("La IA esta pensando su jugada...")
+            # es_maximizador=False porque en este turno le toca a B, que
+            # minimiza la evaluación (ventaja de A - B).
+            _, mejor_jugada = minimax_alfa_beta(tablero, 4, -float("inf"), float("inf"), False)
+
+            if mejor_jugada:
+                tablero.realizar_movimiento_b(mejor_jugada[0], mejor_jugada[1])
+                print(f"IA juega en fila {mejor_jugada[0]}, columna {mejor_jugada[1]}.\n")
                 jugador = "A"
                 print(tablero)
-            else:
-                # Avisa si la posición estaba ocupada o dejaba la pieza fuera de los límites.
-                print("Movimiento inválido para el jugador B.\n")
+
 
 # Punto de entrada estándar de los scripts de Python.
 if __name__ == "__main__":
