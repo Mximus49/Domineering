@@ -6,7 +6,7 @@ class DomineeringTablero(Board):
     """Representa el tablero del juego.
 
     Hereda de la clase Board y maneja la lógica de movimientos
-    para los jugadores A (fichas horizontales) y B (fichas verticales).
+    para los jugadores A (fichas verticales) y B (fichas horizontales).
     """
 
     __player_a: str  # Identificador para el jugador A.
@@ -32,29 +32,7 @@ class DomineeringTablero(Board):
     def movimiento_a_valido(self, r: int, c: int) -> bool:
         """Valida si el movimiento del jugador A es válido.
 
-        El jugador A coloca su ficha de manera horizontal ocupando
-        las casillas consecutivas (r, c) y (r, c + 1).
-
-        Args:
-            r (int): Fila objetivo en el tablero.
-            c (int): Columna objetivo en el tablero.
-
-        Returns:
-            bool: True si el movimiento es válido, False en caso contrario.
-        """
-        if not self.valid_move(r, c):
-            return False
-
-        # Verifica que la ficha no exceda los límites del tablero.
-        if c + 1 > len(self):
-            return False
-
-        return self.valid_move(r, c + 1)
-
-    def movimiento_b_valido(self, r: int, c: int) -> bool:
-        """Valida si el movimiento del jugador B es válido.
-
-        El jugador B coloca su ficha de manera vertical ocupando
+        El jugador A coloca su ficha de manera vertical ocupando
         las casillas consecutivas (r, c) y (r + 1, c).
 
         Args:
@@ -73,12 +51,34 @@ class DomineeringTablero(Board):
 
         return self.valid_move(r + 1, c)
 
+    def movimiento_b_valido(self, r: int, c: int) -> bool:
+        """Valida si el movimiento del jugador B es válido.
+
+        El jugador B coloca su ficha de manera horizontal ocupando
+        las casillas consecutivas (r, c) y (r, c + 1).
+
+        Args:
+            r (int): Fila objetivo en el tablero.
+            c (int): Columna objetivo en el tablero.
+
+        Returns:
+            bool: True si el movimiento es válido, False en caso contrario.
+        """
+        if not self.valid_move(r, c):
+            return False
+
+        # Verifica que la ficha no exceda los límites del tablero.
+        if c + 1 > len(self):
+            return False
+
+        return self.valid_move(r, c + 1)
+
     def realizar_movimiento_a(self, r: int, c: int) -> bool:
         """Ejecuta el movimiento del jugador A en el tablero.
 
         Args:
             r (int): Fila donde se colocará la ficha.
-            c (int): Columna inicial para la ficha.
+            c (int): Columna para la ficha.
 
         Returns:
             bool: True si se realizó con éxito, False si el movimiento era inválido.
@@ -86,17 +86,17 @@ class DomineeringTablero(Board):
         if not self.movimiento_a_valido(r, c):
             return False
 
-        # Asigna el jugador A a la posición horizontal.
+        # Asigna el jugador A a la posición vertical.
         self[r, c] = self.__player_a
-        self[r, c + 1] = self.__player_a
+        self[r + 1, c] = self.__player_a
         return True
 
     def realizar_movimiento_b(self, r: int, c: int) -> bool:
         """Ejecuta el movimiento del jugador B en el tablero.
 
         Args:
-            r (int): Fila donde se colocará la ficha.
-            c (int): Columna inicial para la ficha.
+            r (int): Fila para la ficha.
+            c (int): Columna inicial donde se colocará la ficha.
 
         Returns:
             bool: True si se realizó con éxito, False si el movimiento era inválido.
@@ -104,9 +104,9 @@ class DomineeringTablero(Board):
         if not self.movimiento_b_valido(r, c):
             return False
 
-        # Asigna el jugador B a la posición vertical.
+        # Asigna el jugador B a la posición horizontal.
         self[r, c] = self.__player_b
-        self[r + 1, c] = self.__player_b
+        self[r, c + 1] = self.__player_b
         return True
 
     def movimiento_valido(self, jugador: str) -> bool:
