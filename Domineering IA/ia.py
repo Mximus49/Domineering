@@ -7,14 +7,6 @@ def _contar_vecinos_vacios(tablero, r: int, c: int) -> int:
     Es una heurística puramente local: solo examina hasta 4 casillas
     vecinas, sin recorrer el tablero completo. Su costo es constante y no
     depende del tamaño del tablero.
-
-    Args:
-        tablero: Instancia del tablero de juego.
-        r (int): Fila de la casilla a examinar.
-        c (int): Columna de la casilla a examinar.
-
-    Returns:
-        int: Cantidad de vecinos ortogonales vacíos (0 a 4).
     """
     vecinos = ((r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1))
     total = 0
@@ -29,22 +21,7 @@ def ordenar_movimientos(tablero, movimientos: list[tuple[int, int]], jugador: st
     """Ordena los movimientos candidatos de mejor a peor según una heurística local.
 
     Se prioriza colocar el dominó en casillas con más vecinos vacíos
-    alrededor (más "espacio para maniobrar" cerca de esa jugada). A
-    diferencia de evaluar el tablero completo con cada candidato, esta
-    heurística cuesta tiempo constante por movimiento, así que ordenar toda
-    la lista cuesta lo mismo que generarla (O(n²) en total, no O(n⁴)). Esto
-    es lo que permite que restringir la cantidad de movimientos evaluados
-    (parámetro `max_movimientos` de `minimax_alfa_beta`) realmente ahorre
-    tiempo, en vez de que el costo se vaya todo en ordenar.
-
-    Args:
-        tablero: Instancia del tablero de juego.
-        movimientos (list[tuple[int, int]]): Movimientos candidatos a ordenar.
-        jugador (str): Jugador que realizará la jugada ("A" o "B").
-
-    Returns:
-        list[tuple[int, int]]: Los mismos movimientos, ordenados de mejor a
-            peor desde la perspectiva de `jugador`.
+    alrededor (más "espacio para maniobrar" cerca de esa jugada).
     """
     def puntaje(movimiento: tuple[int, int]) -> int:
         r, c = movimiento
@@ -64,27 +41,7 @@ def minimax_alfa_beta(
     es_maximizador,
     max_movimientos: int | None = None,
 ):
-    """Ejecuta Minimax con poda Alfa-Beta para elegir la mejor jugada disponible.
-
-    Args:
-        tablero: Instancia del tablero de juego sobre la que se simula.
-        profundidad (int): Cantidad de jugadas (plies) restantes a explorar.
-        alfa (float): Mejor valor garantizado hasta ahora para el maximizador.
-        beta (float): Mejor valor garantizado hasta ahora para el minimizador.
-        es_maximizador (bool): True si es el turno del jugador A (IA).
-        max_movimientos (int | None): Si se especifica, limita a esa cantidad
-            los movimientos candidatos evaluados en cada nodo, una vez
-            ordenados de mejor a peor. Esto restringe la generación de
-            opciones y reduce drásticamente el tiempo de cómputo en tableros
-            grandes, a costa de que la búsqueda deje de ser exhaustiva
-            (puede pasar por alto la jugada verdaderamente óptima). Si es
-            None, se evalúan todos los movimientos disponibles.
-
-    Returns:
-        tuple[float, tuple[int, int] | None]: El valor de evaluación del
-            mejor movimiento encontrado, junto con las coordenadas (r, c)
-            de dicho movimiento.
-    """
+    """Ejecuta Minimax con poda Alfa-Beta para elegir la mejor jugada disponible."""
     movimientos_a = tablero.obtener_movimientos("A")
     movimientos_b = tablero.obtener_movimientos("B")
 
@@ -98,7 +55,7 @@ def minimax_alfa_beta(
     if profundidad == 0:
         return tablero.evaluar_tablero(), None
 
-    if es_maximizador:  # Turno de la IA (Jugador A)
+    if es_maximizador:  # Simulación del Humano (Jugador A)
         movimientos = ordenar_movimientos(tablero, movimientos_a, "A")
 
         # Restringe la cantidad de opciones evaluadas, si corresponde.
@@ -130,7 +87,7 @@ def minimax_alfa_beta(
                 break  # Poda
         return max_eval, mejor_movimiento
 
-    else:  # Simulación del Humano (Jugador B)
+    else:  # Turno de la IA (Jugador B)
         movimientos = ordenar_movimientos(tablero, movimientos_b, "B")
 
         if max_movimientos is not None:

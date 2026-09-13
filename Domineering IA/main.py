@@ -5,22 +5,13 @@ del tablero y controla el flujo de los turnos hasta determinar un ganador.
 from domineering import DomineeringTablero
 from ia import minimax_alfa_beta
 
-# Cambiar R y C, ESTAN AL REVES
-
 
 def calcular_profundidad(n: int) -> int:
     """Calcula una profundidad de búsqueda razonable según el tamaño del tablero.
 
     Los tableros grandes tienen muchas más jugadas posibles por turno, por lo
     que se reduce la profundidad para mantener el tiempo de cómputo de la IA
-    dentro de límites aceptables. Los umbrales fueron ajustados a partir de
-    pruebas de tiempo con el algoritmo Minimax + poda Alfa-Beta.
-
-    Args:
-        n (int): Tamaño del tablero (n x n).
-
-    Returns:
-        int: Profundidad (cantidad de jugadas a simular) recomendada.
+    dentro de límites aceptables. 
     """
     if n <= 5:
         return 6
@@ -38,13 +29,6 @@ def calcular_limite_movimientos(n: int) -> int | None:
     casos se limita la cantidad de opciones consideradas en cada nodo (una
     vez ordenadas de mejor a peor con `ordenar_movimientos`) para evitar que
     el árbol de búsqueda crezca de forma incontrolable.
-
-    Args:
-        n (int): Tamaño del tablero (n x n).
-
-    Returns:
-        int | None: Cantidad máxima de movimientos a evaluar por nodo, o None
-            si no se desea aplicar restricción.
     """
     if n <= 5:
         return None
@@ -53,9 +37,6 @@ def calcular_limite_movimientos(n: int) -> int | None:
 
 def solicitar_modo_entrada() -> str:
     """Solicita al jugador humano el formato en que ingresará sus jugadas.
-
-    Esta elección se realiza una sola vez, al inicio de la partida, y se
-    mantiene durante todos los turnos del jugador humano.
 
     Returns:
         str: "numeros" si el jugador ingresará la fila y la columna por
@@ -77,23 +58,7 @@ def solicitar_modo_entrada() -> str:
 
 
 def leer_movimiento_humano(n: int, modo_entrada: str) -> tuple[int, int] | None:
-    """Solicita al jugador humano las coordenadas de su jugada.
-
-    El formato de la solicitud depende de `modo_entrada`, definido al inicio
-    de la partida mediante `solicitar_modo_entrada`. Toda la validación se
-    hace con condicionales `if` explícitos (sin try/except), de modo que
-    cada caso inválido imprime un mensaje que indica específicamente cuál
-    fue el problema.
-
-    Args:
-        n (int): Tamaño del tablero, usado para armar los mensajes al usuario.
-        modo_entrada (str): "numeros" o "tupla".
-
-    Returns:
-        tuple[int, int] | None: Las coordenadas (fila, columna) ingresadas
-            como enteros, o None si la entrada no pudo interpretarse (en
-            cuyo caso ya se informó el error específico al usuario).
-    """
+    """Solicita al jugador humano las coordenadas de su jugada."""
     if modo_entrada == "numeros":
         entrada_fila = input(f"Ingrese la fila (1 a {n}): \n").strip()
         entrada_columna = input(f"Ingrese la columna (1 a {n}): \n").strip()
@@ -137,22 +102,12 @@ def leer_movimiento_humano(n: int, modo_entrada: str) -> tuple[int, int] | None:
         return int(texto_fila), int(texto_columna)
 
 
-def diagnosticar_movimiento_b(tablero, n: int, r: int, c: int) -> str | None:
-    """Explica por qué un movimiento vertical del jugador B no es válido.
+def diagnosticar_movimiento_a(tablero, n: int, r: int, c: int) -> str | None:
+    """Explica por qué un movimiento vertical del jugador A no es válido.
 
     Reproduce, con condicionales `if`, las mismas condiciones que revisa
-    `movimiento_b_valido`, pero describiendo específicamente cuál de ellas
+    `movimiento_a_valido`, pero describiendo específicamente cuál de ellas
     falló, en vez de solo indicar que el movimiento es inválido.
-
-    Args:
-        tablero: Instancia del tablero de juego.
-        n (int): Tamaño del tablero.
-        r (int): Fila de la casilla superior del dominó.
-        c (int): Columna de la casilla superior del dominó.
-
-    Returns:
-        str | None: Un mensaje describiendo el problema encontrado, o None
-            si el movimiento en realidad sí es válido.
     """
     if r + 1 > n:
         return f"la ficha ocuparía la fila {r + 1}, fuera del tablero (filas 1 a {n})."
@@ -197,8 +152,8 @@ def main():
 
     # Crea las reglas visuales y al jugador que comienza la partida.
     jugador = "A"
-    print("\nJugador A coloca fichas horizontalmente.")
-    print("Jugador B coloca fichas verticalmente.\n")
+    print("\nJugador A (humano) coloca fichas verticalmente y juega primero.")
+    print("Jugador B (IA) coloca fichas horizontalmente.\n")
     # Muestra el estado inicial del tablero vacío.
     print(tablero)
 
@@ -216,23 +171,27 @@ def main():
         
         
         # Lógica para procesar el movimiento dependiendo del jugador activo.
-        if jugador == "A":
+        if jugador == "B":
+            # Turno de la IA: juega con fichas horizontales y minimiza la
+            # evaluación (es_maximizador=False), ya que el maximizador
+            # siempre es el jugador A.
             print("La IA esta pensando su jugada...")
             _, mejor_jugada = minimax_alfa_beta(
                 tablero,
                 profundidad_ia,
                 -float("inf"),
                 float("inf"),
-                True,
+                False,
                 limite_movimientos,
             )
 
             if mejor_jugada:
-                tablero.realizar_movimiento_a(mejor_jugada[0], mejor_jugada[1])
+                tablero.realizar_movimiento_b(mejor_jugada[0], mejor_jugada[1])
                 print(f"IA juega en fila {mejor_jugada[0]}, columna {mejor_jugada[1]}.\n")
-                jugador = "B"
+                jugador = "A"
                 print(tablero)
         else:
+            # Turno del humano (jugador A, fichas verticales).
             # Solicita las coordenadas de la jugada según el modo elegido al inicio.
             resultado = leer_movimiento_humano(n, modo_entrada)
             if resultado is None:
@@ -246,16 +205,16 @@ def main():
 
             # Diagnostica específicamente por qué la jugada no sería válida,
             # antes de intentar realizarla.
-            razon_invalida = diagnosticar_movimiento_b(tablero, n, r, c)
+            razon_invalida = diagnosticar_movimiento_a(tablero, n, r, c)
 
             if razon_invalida is not None:
-                print(f"Movimiento inválido para el jugador B: {razon_invalida}\n")
+                print(f"Movimiento inválido para el jugador A: {razon_invalida}\n")
                 continue
 
-            # La jugada es válida: la ejecuta y cambia el turno al jugador A.
-            tablero.realizar_movimiento_b(r, c)
-            print("Movimiento realizado por el jugador B.\n")
-            jugador = "A"
+            # La jugada es válida: la ejecuta y cambia el turno al jugador B.
+            tablero.realizar_movimiento_a(r, c)
+            print("Movimiento realizado por el jugador A.\n")
+            jugador = "B"
             print(tablero)
 
 
