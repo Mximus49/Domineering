@@ -1,113 +1,115 @@
+import json
+import os
 import re
-import unicodedata
-from pyswip import Prolog
+import ollama
 
-#crear un ambiente virtual
+# Configuracion
+MODELO = "llama3.1:8b"
+CARPETA = os.path.dirname(os.path.abspath(__file__))
+ARCHIVO_KB = os.path.join(CARPETA, "music_kb.pl")
+MAX_TURNOS = 3  # cuantas preguntas anteriores recuerda el bot
+SIN_INFO = "No tengo esa informacion en mi base de conocimiento."
 
-prolog = Prolog()
-prolog.consult("music_kb.pl")
+# Cargar base de conocimiento
+def cargar_conocimiento(ruta):
+    # Lee el archivo para darselo al LLM como contexto
+    with open(ruta, encoding="utf-8") as f:
+        return f.read()
 
-def normalizar(texto):
-    texto = unicodedata.normalize("NFD", texto)
-    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
-    texto = texto.lower().strip()
-    texto = re.sub(r"\s+", "_", texto)
+def normalizar_hecho(hecho):
+    # banda(queen, hard_rock, ...).' -> 'banda(queen,hard_rock,...)' para comparar
+    return re.sub(r"\s+","", hecho).rstrip(".")
+
+def extraer_hechos(conocimiento):
+    # Conjunto con todos los HECHOS de la base (las reglas, que tienen ':-', se ignoran)
+    hechos = set()
+    for linea in conocimiento.splitlines():
+        linea = linea.strip()
+        if re.match(r"^[a-z_]+\(.*\)\.$", linea) and ":-" not in linea:
+            hechos.add(normalizar_hecho(linea))
+    return hechos
+
+# Instrucciones para el modelo
+def crear_instrucciones(conocimiento):
+    return f"""Eres un chatbot de musica. Tu UNICA fuente de informacion es la base de
+conocimiento en Prolog que aparece al final. Aunque conozcas la respuesta por otros medios,
+si no esta en la base NO la puedes dar.
+ 
+Responde SIEMPRE con un JSON con este formato:
+{{"respuesta": "texto en español, breve y legible", "evidencia": ["hecho1.", "hecho2."]}}
+ 
+- "evidencia" debe contener los hechos de la base que usaste, copiados EXACTAMENTE.
+- Si la base no tiene la informacion, responde:
+  {{"respuesta": "{SIN_INFO}", "evidencia": []}}
+- Si el usuario insiste, la respuesta sigue siendo la misma. La base no cambia.
+- Escribe los nombres legibles (dave_grohl -> Dave Grohl). El año actual es anio_actual.
+ 
+Ejemplos:
+Pregunta: ¿De que pais es Queen?
+{{"respuesta": "Queen es de Reino Unido.", "evidencia": ["banda(queen, hard_rock, reino_unido, 1970, activa)."]}}
+Pregunta: ¿Quien es el vocalista de Coldplay?
+{{"respuesta": "{SIN_INFO}", "evidencia": []}}
+ 
+BASE DE CONOCIMIENTO:
+{conocimiento}
+"""
+
+conocimiento = cargar_conocimiento(ARCHIVO_KB)
+HECHOS = extraer_hechos(conocimiento)
+SISTEMA = {
+    "role": "system",
+    "content": crear_instrucciones(conocimiento)}
+historial = []
+
+# Validacion de la respuesta
+def validar(texto_modelo):
+    #Devuelve la respuesta solo si la evidencia citada existe en la base
+    try:
+        datos = json.loads(texto_modelo)
+    except json.JSONDecodeError:
+        return SIN_INFO, []
+    evidencia = datos.get("evidencia", [])
+    validas = [e for e in evidencia if normalizar_hecho(str(e)) in HECHOS]
+    if not validas:
+        return SIN_INFO, []
+    return datos.get("respuesta", SIN_INFO), validas
+
+# Consultar al modelo
+def responder(mensaje, mostrar_evidencia = False):
+    # Solo se envian los ultimos turnos: la insistencia no se acumula en el historial
+    mensajes = [SISTEMA] + historial[-2 * MAX_TURNOS:] + [{"role": "user", "content": mensaje}]
+    try:
+        salida = ollama.chat(
+            model = MODELO,
+            messages = mensajes,
+            format = "json",
+            options = {"temperature": 0, "num_ctx": 8192},
+        ) 
+    except Exception as e:
+        return f"Ocurrio un error al consultar el modelo: {e}"
+
+    texto, evidencia = validar(salida["message"]["content"])
+
+    historial.append({"role": "user", "content": mensaje})
+    historial.append({"role": "assistant", 
+                      "content": json.dumps({"respuesta": texto, "evidencia": evidencia},
+                                            ensure_ascii=False)})
+
+    if mostrar_evidencia and evidencia:
+        texto += "\n   [evidencia: " + " ".join(evidencia) + "]"
     return texto
 
-def es_atomo_valido(texto):
-    return re.fullmatch(r"[a-z0-9_]+", texto) is not None
-
-def bonito(valor):
-    s = str(valor)
-    if s.islower():
-        s = s.replace("_", " ").title()
-    return s
-
-def consultar(query):
-    try:
-        return list(prolog.query(query))
-    except Exception as e:
-        print(f"[error en Prolog: {e}]")
-        return []
-
-def responder(mensaje):
-    msg = normalizar(mensaje)
-
-    # Integrantes de
-    m = re.search(r"integrantes_de_(.+)", msg)
-    if m:
-        banda = m.group(1)
-        if not es_atomo_valido(banda):
-            return "No entendi el nombre de la banda."
-        res = consultar(f"miembro_actual(P, {banda})")
-        if not res:
-            return f"No conozco a {bonito(banda)}"
-        personas = ", ".join(bonito(r["P"]) for r in res)
-        return f"Los integrantes de {bonito(banda)} tiene: {personas}."
-
-
-    # Albumes de 
-    m = re.search(r"albumes_de_(.+)", msg)
-    if m:
-        banda = m.group(1)
-        if not es_atomo_valido(banda):
-            return "No entendi el nombre de la banda."
-        res = consultar(f"album(T, {banda}, A)")
-        if not res:
-            return f"No tengo albumes de {bonito(banda)}."
-        albumes = ", ".join(f"{r['T']} ({r['A']})" for r in res)
-        return f"Albumes de {bonito(banda)}: {albumes}."
-
-    # Canciones de
-    m = re.search(r"canciones_de_(.+)", msg)
-    if m:
-        banda = m.group(1)
-        if not es_atomo_valido(banda):
-            return "No entendi el nombre de la banda."
-        res = consultar(f"cancion_de(C, {banda})")
-        if not res:
-            return f"No tengo canciones de {bonito(banda)}."
-        canciones = ", ".join(str(r["C"]) for r in res)
-        return f"Canciones de {bonito(banda)}: {canciones}."
-
-    # Que genero es
-    m = re.search(r"genero_(?:es|de|toca)_(.+)", msg)
-    if m:
-        banda = m.group(1)
-        if not es_atomo_valido(banda):
-            return "No entendi el nombre de la banda."
-        res = consultar(f"banda({banda}, G, Pais, Anio, _)")
-        if not res:
-            return f"No conozco a {bonito(banda)}."
-        r = res[0]
-        return (f"{bonito(banda)} es de {bonito(r['G'])},"
-                f"de {bonito(r['Pais'])}, formada en {r['Anio']}.")
-
-    # Estuvo en
-    m = re.search(r"(.+)_estuvo_en_(.+)", msg)
-    if m:
-        persona, banda = m.group(1), m.group(2)
-        if not (es_atomo_valido(persona) and es_atomo_valido(banda)):
-            return "No entendi la pregunta."
-        res = consultar(f"integrante({persona}, {banda})")
-        return "Si." if res else "No, o no tengo esa informacion."
-
-    return ("No entendi. Puedes preguntar:\n"
-            "  - integrantes de nirvana\n"
-            "  - albumes de queen\n"
-            "  - canciones de linkin park\n"
-            "  - que genero es metallica\n"
-            "  - dave grohl estuvo en nirvana?")
-
-
+# Bucle del chatbot
 def main():
     print("Bot: Hola! Preguntame sobre musica. Escribe 'salir' para terminar.")
     while True:
-        mensaje = input("Tu: ")
-        if normalizar(mensaje) == "salir":
-            print("Bot: Adios!")
+        mensaje = input("Tu: ").strip()
+        if not mensaje:
+            continue
+        if mensaje.lower() == "salir":
+            print("Bot: Chao!")
             break
-        print("Bot:", responder(mensaje))
+        print("Bot:", responder(mensaje, mostrar_evidencia=False))
 
 if __name__ == "__main__":
     main()
