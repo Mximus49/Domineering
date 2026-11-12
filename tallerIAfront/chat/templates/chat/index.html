@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot de Música</title>
+  <link rel="stylesheet" href="{% static 'chat/style.css' %}">
+</head>
+<body>
+  <main class="contenedor">
+    <header class="cabecera">
+      <div>
+        <h1>Chatbot de Música</h1>
+        <p class="subtitulo">Pregunta en lenguaje natural · Responde Prolog</p>
+      </div>
+      <form method="post" action="{% url 'reiniciar' %}">
+        {% csrf_token %}
+        <button type="submit" class="boton-secundario">Nueva conversación</button>
+      </form>
+    </header>
+
+    <section class="mensajes" id="mensajes">
+      {% for m in historial %}
+        <div class="mensaje {{ m.autor }}">
+          <span class="autor">{% if m.autor == "bot" %}Bot{% else %}Tú{% endif %}</span>
+          <p>{{ m.texto|linebreaksbr }}</p>
+        </div>
+      {% endfor %}
+    </section>
+
+    <div class="ejemplos">
+      {% for e in ejemplos %}
+        <button type="button" class="chip" data-texto="{{ e }}">{{ e }}</button>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{% url 'chat' %}" class="entrada" id="formulario">
+      {% csrf_token %}
+      <input type="text" name="mensaje" id="campo" placeholder="Escribe tu pregunta..." autocomplete="off" autofocus required>
+      <button type="submit" id="enviar">Enviar</button>
+      <label class="opcion">
+        <input type="checkbox" name="evidencia" {% if evidencia %}checked{% endif %}>
+        Mostrar consulta Prolog
+      </label>
+    </form>
+  </main>
+
+  <script>
+    // Bajar automaticamente al ultimo mensaje
+    const mensajes = document.getElementById("mensajes");
+    mensajes.scrollTop = mensajes.scrollHeight;
+
+    // Al hacer clic en un ejemplo, se copia al campo de texto
+    document.querySelectorAll(".chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const campo = document.getElementById("campo");
+        campo.value = chip.dataset.texto;
+        campo.focus();
+      });
+    });
+
+    // El modelo se demora unos segundos: avisar mientras responde
+    document.getElementById("formulario").addEventListener("submit", () => {
+      const boton = document.getElementById("enviar");
+      boton.textContent = "Pensando...";
+      boton.disabled = true;
+    });
+  </script>
+</body>
+</html>
